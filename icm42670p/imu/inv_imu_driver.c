@@ -24,9 +24,9 @@
 
 #if INV_IMU_HFSR_SUPPORTED
 /* Address of DMP_CONFIG1 register */
-#define DMP_CONFIG1_MREG1  0x2c
+#define DMP_CONFIG1_MREG1 0x2c
 /* SRAM first bank ID */
-#define SRAM_START_BANK    0x50
+#define SRAM_START_BANK 0x50
 #endif
 
 /* Static functions declaration */
@@ -67,20 +67,8 @@ int inv_imu_init(inv_imu_device_t *s, const struct inv_imu_serif *serif,
 	/* Reset device */
 	status |= inv_imu_device_reset(s);
 
-	/* Init transport layer */
-	status |= inv_imu_init_transport(s);
-
-	/* Read and set endianness for further processing */
-	status |= inv_imu_get_endianness(s);
-
 	/* Initialize hardware */
 	status |= init_hardware_from_ui(s);
-
-	/* Set default value for sensor start/stop time */
-#if INV_IMU_IS_GYRO_SUPPORTED
-	s->gyro_start_time_us = UINT32_MAX;
-#endif
-	s->accel_start_time_us = UINT32_MAX;
 
 	return status;
 }
@@ -89,6 +77,17 @@ int inv_imu_device_reset(inv_imu_device_t *s)
 {
 	int     status = INV_ERROR_SUCCESS;
 	uint8_t data;
+	uint8_t drive_config2 = 0;
+	uint8_t drive_config3 = 0;
+
+	/* 
+	 * Save slew-rate configuration
+	 * DRIVE_CONFIG2: Configures all pins except 14, configures pin 14 in I2C mode
+	 * DRIVE_CONFIG3: Configures pin 14 in SPI mode
+	 */
+	status |= inv_imu_read_reg(s, DRIVE_CONFIG2, 1, &drive_config2);
+	if (s->transport.serif.serif_type == UI_SPI4 || s->transport.serif.serif_type == UI_SPI3)
+		status |= inv_imu_read_reg(s, DRIVE_CONFIG3, 1, &drive_config3);
 
 	/* Ensure BLK_SEL_R and BLK_SEL_W are set to 0 */
 	data = 0;
@@ -102,6 +101,11 @@ int inv_imu_device_reset(inv_imu_device_t *s)
 	/* Wait 1ms for soft reset to be effective */
 	inv_imu_sleep_us(1000);
 
+	/* Restore slew-rate configuration */
+	status |= inv_imu_write_reg(s, DRIVE_CONFIG2, 1, &drive_config2);
+	if (s->transport.serif.serif_type == UI_SPI4 || s->transport.serif.serif_type == UI_SPI3)
+		status |= inv_imu_write_reg(s, DRIVE_CONFIG3, 1, &drive_config3);
+
 	/* Re-configure serial interface since it was reset */
 	status |= configure_serial_interface(s);
 
@@ -109,6 +113,21 @@ int inv_imu_device_reset(inv_imu_device_t *s)
 	status |= inv_imu_read_reg(s, INT_STATUS, 1, &data);
 	if (data != INT_STATUS_RESET_DONE_INT_MASK)
 		status |= INV_ERROR_UNEXPECTED;
+
+	/* Force register cache reload. */
+	status |= inv_imu_init_transport(s);
+
+	/* Reset driver internal states */
+	s->dmp_is_on            = 0;
+	s->fifo_highres_enabled = 0;
+	s->fifo_is_used         = INV_IMU_FIFO_DISABLED;
+#if INV_IMU_IS_GYRO_SUPPORTED
+	s->gyro_start_time_us = UINT32_MAX;
+#endif
+	s->accel_start_time_us = UINT32_MAX;
+
+	/* Read and set endianness for further processing */
+	status |= inv_imu_get_endianness(s);
 
 	return status;
 }
@@ -1367,9 +1386,9 @@ int inv_imu_start_dmp(inv_imu_device_t *s)
 
 #if INV_IMU_HFSR_SUPPORTED
 		{
-			uint8_t data;
+			uint8_t        data;
 			static uint8_t ram_img[] = {
-				#include "dmp3Default_xian_hfsr_rom_patch.txt"
+#include "dmp3Default_xian_hfsr_rom_patch.txt"
 			};
 
 			/* HFSR parts requires to prescale accel data using a patch in SRAM */

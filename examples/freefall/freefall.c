@@ -192,10 +192,18 @@ static int setup_imu()
 	/* Enable accel in LP mode */
 	rc |= inv_imu_enable_accel_low_power_mode(&imu_dev);
 
-	/* Set APEX parameters */
+	/* Optimize APEX parameters for SmartMotion setup */
 	rc |= inv_imu_apex_init_parameters_struct(&imu_dev, &apex_inputs);
-	/* Parameters can be modified here if needed */
-	apex_inputs.power_save = APEX_CONFIG0_DMP_POWER_SAVE_DIS; /* Disable power save mode */
+	apex_inputs.ff_debounce_duration = APEX_CONFIG9_FF_DEBOUNCE_DURATION_2000_MS;
+	apex_inputs.ff_max_duration_cm   = APEX_CONFIG12_FF_MAX_DURATION_228_CM;
+	apex_inputs.ff_min_duration_cm   = APEX_CONFIG12_FF_MIN_DURATION_10_CM;
+	apex_inputs.lowg_peak_th         = APEX_CONFIG10_LOWG_PEAK_TH_500_MG;
+	apex_inputs.lowg_peak_hyst       = APEX_CONFIG5_LOWG_PEAK_TH_HYST_31_MG;
+	apex_inputs.lowg_samples_th      = APEX_CONFIG10_LOWG_TIME_TH_8_SAMPLES;
+	apex_inputs.highg_peak_th        = APEX_CONFIG11_HIGHG_PEAK_TH_7250_MG;
+	apex_inputs.highg_peak_hyst      = APEX_CONFIG5_HIGHG_PEAK_TH_HYST_156_MG;
+	apex_inputs.highg_samples_th     = APEX_CONFIG11_HIGHG_TIME_TH_1_SAMPLE;
+	apex_inputs.power_save           = APEX_CONFIG0_DMP_POWER_SAVE_DIS;
 	rc |= inv_imu_apex_configure_parameters(&imu_dev, &apex_inputs);
 
 	/* Enable FreeFall */

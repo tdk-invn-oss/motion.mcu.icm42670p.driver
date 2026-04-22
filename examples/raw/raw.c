@@ -314,9 +314,9 @@ static void sensor_event_cb(inv_imu_sensor_event_t *event)
 	}
 
 	if (print_si) {
-		float    accel_g[3];
-		float    gyro_dps[3];
-		float    temp_degc;
+		float accel_g[3];
+		float gyro_dps[3];
+		float temp_degc;
 #if INV_IMU_HFSR_SUPPORTED
 		uint16_t accel_fsr_g  = fifo_en && hires_en ? 32 : 4;
 		uint16_t gyro_fsr_dps = fifo_en && hires_en ? 4000 : 2000;
@@ -324,7 +324,7 @@ static void sensor_event_cb(inv_imu_sensor_event_t *event)
 		uint16_t accel_fsr_g  = fifo_en && hires_en ? 16 : 4;
 		uint16_t gyro_fsr_dps = 2000;
 #endif
-		int      max_lsb      = fifo_en && hires_en ? 524287 : 32768;
+		int max_lsb = fifo_en && hires_en ? 524287 : 32768;
 
 		/* Convert raw data into scaled data in g and dps */
 		accel_g[0]  = (float)(accel_raw[0] * accel_fsr_g) / (float)max_lsb;
